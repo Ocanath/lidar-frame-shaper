@@ -8,38 +8,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # External Dependencies
 # ============================================================================
 
-# OpenGL (not needed on Android — uses GLESv3)
-if(NOT ANDROID)
-    find_package(OpenGL REQUIRED)
-endif()
-
-# ImGui (no CMakeLists.txt, add manually)
-set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui)
-add_library(imgui STATIC
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
-)
-target_include_directories(imgui PUBLIC
-    ${IMGUI_DIR}
-    ${IMGUI_DIR}/backends
-)
-if(ANDROID)
-    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
-    target_link_libraries(imgui PUBLIC SDL2 GLESv3 EGL)
-else()
-    target_include_directories(imgui PUBLIC ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(imgui PUBLIC ${SDL2_LIBRARIES} OpenGL::GL)
-endif()
-
 # byte-stuffing (provides: cobs, PPP)
 add_subdirectory(external/byte-stuffing)
 
 # serial-cross-platform (provides: serial)
-# add_subdirectory(external/serial-cross-platform)
+add_subdirectory(external/serial-cross-platform)
 
 # dartt-protocol (provides: dartt_protocol, dartt_checksum)
 add_subdirectory(external/dartt-protocol)
@@ -57,12 +30,9 @@ add_subdirectory(external/eigen)
 set(APP_SOURCES
     src/main.cpp
     src/dartt_init.cpp
-    src/plotting.cpp
-    src/colors.cpp
-    src/ui.cpp
     src/motor.cpp
-    src/spooler_robot.cpp
 	src/trig_fixed.c
+	src/lidar.cpp
 )
 
 # ============================================================================
