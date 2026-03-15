@@ -7,3 +7,6 @@
 [submodule "external/eigen"]
 	path = external/eigen
 	url = https://gitlab.com/libeigen/eigen.git
+[submodule "external/serial-cross-platform"]
+	path = external/serial-cross-platform
+	url = https://github.com/ocanath/serial-cross-platform
