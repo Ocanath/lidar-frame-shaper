@@ -1,5 +1,5 @@
 #pragma once
-#include <glm/glm.hpp>
+#include <Eigen/Dense>
 #include <vector>
 #include <deque>
 #include <mutex>
@@ -9,7 +9,7 @@
 
 class LidarSystem {
 public:
-    using Frame = std::vector<glm::vec3>;
+    using Frame = std::vector<Eigen::Vector3f>;
 
     LidarSystem() = default;
     ~LidarSystem();

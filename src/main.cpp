@@ -29,7 +29,7 @@
 #include "dartt_mctl_params.h"
 #include "motor.h"
 #include "serial.h"
-
+#include "lidar.h"
 
 int main(int argc, char* argv[])
 {
@@ -43,14 +43,9 @@ int main(int argc, char* argv[])
 		printf("Error: failed to connect to a serial port\n");
 	}
 
-	if (tcs_lib_init() != TCS_SUCCESS)
-	{
-		printf("Failed to initialize tinycsocket\n");
-	}
-	else
-	{
-		printf("Initialize tinycsocket library success\n");
-	}
+	LidarSystem lidar; 
+	lidar.connect(2381);
+
 	Motor m(0); 	//dartt addr = 0
 
 	bool running;
@@ -67,15 +62,14 @@ int main(int argc, char* argv[])
 		int dartt_rc = dartt_read_multi(&r, &m.ds);
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
 		{
-			printf("dartt read error %d\n", dartt_rc);
+			// printf("dartt read error %d\n", dartt_rc);
 		}
 		else
 		{
 			//write
 		}
+		
 	}
 	
-	tcs_lib_free();
-
 	return 0;
 }

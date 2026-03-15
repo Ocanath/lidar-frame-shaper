@@ -1,5 +1,4 @@
 #include "lidar.h"
-#include <glm/gtc/constants.hpp>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -25,7 +24,8 @@ bool LidarSystem::connect(uint16_t p)
     if (running_) disconnect();
 
     socket_ = ::socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_ < 0) {
+    if (socket_ < 0) 
+	{
         perror("LidarSystem: socket");
         return false;
     }
@@ -78,10 +78,13 @@ bool LidarSystem::pollNewFrame()
 void LidarSystem::recvLoop()
 {
     uint8_t buf[1206];
-    while (running_) {
+    while (running_) 
+	{
         ssize_t received = ::recvfrom(socket_, buf, sizeof(buf), 0, nullptr, nullptr);
         if (received == 1206)
+		{
             decodePacket(buf, (size_t)received);
+		}
         // On timeout (EAGAIN/EWOULDBLOCK), received < 0 — just loop and re-check running_
     }
 }
@@ -101,9 +104,14 @@ void LidarSystem::decodePacket(const uint8_t* data, size_t /*len*/)
         if (block[0] != 0xFF || block[1] != 0xEE) continue;
 
         uint16_t az_raw  = static_cast<uint16_t>(block[2] | (block[3] << 8));
-        float    azimuth = static_cast<float>(az_raw); // centidegrees [0, 35999]
+        float    azimuth_block = static_cast<float>(az_raw); // centidegrees [0, 35999]
 
-        for (int ch = 0; ch < 32; ++ch) 
+		/*TODO: interpolate the azimuth of the second data block.
+			Second data block does not have an azimuth, but it is different to the block azimuth. I think 
+			you should 'interpolate' as in take the midpoint of the current block azimuth and the next block azimuth. 
+			But i gotta read da documentations more.
+		*/
+        for (int ch = 0; ch < 32; ++ch) 	
 		{
             int           laser_id = ch % 16;
             const uint8_t* chan    = block + 4 + ch * 3;
@@ -111,22 +119,30 @@ void LidarSystem::decodePacket(const uint8_t* data, size_t /*len*/)
             if (dist_raw == 0) continue;
 
             float dist_m = dist_raw * 0.01f;
-            float az_rad = glm::radians(azimuth / 100.f);
-            float el_rad = glm::radians(VERT_ANGLES[laser_id]);
+			float az_rad;
+			if(ch < 16)
+            {
+				az_rad = (azimuth_block / 100.f)*M_PI/180.f;
+			}	
+			else	//TODO: something else. Look ahead at the next azimuth?
+			{
+				az_rad = (azimuth_block / 100.f)*M_PI/180.f;
+			}
+            float el_rad = (VERT_ANGLES[laser_id])*M_PI/180.f;
 
-            pending_.push_back({
+            pending_.push_back(Eigen::Vector3f(
                 dist_m * cosf(el_rad) * sinf(az_rad),
                 dist_m * cosf(el_rad) * cosf(az_rad),
                 dist_m * sinf(el_rad)
-            });
+            ));
         }
 
         // Frame boundary: azimuth wrapped from ~35999 back toward 0
-        if (lastAzimuth_ > 18000.f && azimuth < lastAzimuth_)
+        if (lastAzimuth_ > 18000.f && azimuth_block < lastAzimuth_)
 		{
 			commitPending();
 		}
-        lastAzimuth_ = azimuth;
+        lastAzimuth_ = azimuth_block;
     }
 }
 
