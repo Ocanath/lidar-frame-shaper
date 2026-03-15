@@ -28,12 +28,20 @@
 #include <string>
 #include "dartt_mctl_params.h"
 #include "motor.h"
+#include "serial.h"
 
 
 int main(int argc, char* argv[])
 {
 	(void)argc;
 	(void)argv;
+
+	Serial serial;
+	bool connected = serial.autoconnect(921600);
+	if(connected == false)
+	{
+		printf("Error: failed to connect to a serial port\n");
+	}
 
 	if (tcs_lib_init() != TCS_SUCCESS)
 	{
@@ -66,6 +74,8 @@ int main(int argc, char* argv[])
 			//write
 		}
 	}
+	
+	tcs_lib_free();
 
 	return 0;
 }

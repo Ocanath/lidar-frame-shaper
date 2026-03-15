@@ -1,0 +1,11 @@
+build/
+__pycache__/
+
+# Android / Gradle
+android/.gradle/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+*.apk
+*.aab
+***.lock
