@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(spooler_controller C CXX)
+project(lidar_frame_parser C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
