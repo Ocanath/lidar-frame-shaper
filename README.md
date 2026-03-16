@@ -12,3 +12,8 @@ cmake ..
 cmake --build .
 ```
 
+**Note: if you did not clone with the --recursive flag, you will need to initialize the submodules.**
+
+```bash
+git submodule update --init --recursive
+```
