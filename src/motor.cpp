@@ -33,32 +33,3 @@ Motor::Motor(unsigned char addr, Serial * ser)
 	ds.timeout_ms = 10;
 }
 
-
-
-bool Motor::write_zero_offset(void)
-{
-	bool pass = true;
-
-	dartt_buffer_t word = {
-		.buf = (unsigned char *)(&dp_ctl.unwrap_state.unwrapped_angle),
-		.size = sizeof(uint32_t)*4,
-		.len = sizeof(int32_t)*4
-	};
-		
-	int rc = dartt_read_multi(&word, &ds);
-	if(rc != DARTT_PROTOCOL_SUCCESS)
-	{
-		pass = false;
-	}
-	else
-	{
-		dp_ctl.unwrap_state.unwrapped_angle = 0;	//clear any windup
-		dp_ctl.theta_offset = wrap_2pi_fixed(dp_periph.unwrap_state.unwrapped_angle, TWO_PI_14B);	//
-		rc = dartt_write_multi(&word, &ds);
-		if(rc != DARTT_PROTOCOL_SUCCESS)
-		{
-			pass = false;
-		}
-	}
-	return pass;
-}
