@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
 
 	Motor m(0); 	//dartt addr = 0
 
-	bool running;
+	bool running = true;
 	while (running)
 	{
 
