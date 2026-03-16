@@ -20,10 +20,10 @@ Motor::Motor(unsigned char addr, Serial * ser)
 
 	ds.msg_type = TYPE_SERIAL_MESSAGE;
 
-	ds.tx_buf.buf = new unsigned char[SERIAL_BUFFER_SIZE];
+	ds.tx_buf.buf = tx_buf_mem;
 	ds.tx_buf.size = SERIAL_BUFFER_SIZE - NUM_BYTES_COBS_OVERHEAD;		//DO NOT CHANGE. This is for a good reason. See above note
 	ds.tx_buf.len = 0;
-	ds.rx_buf.buf = new unsigned char[SERIAL_BUFFER_SIZE];
+	ds.rx_buf.buf = rx_buf_mem;
 	ds.rx_buf.size = SERIAL_BUFFER_SIZE - NUM_BYTES_COBS_OVERHEAD;	//DO NOT CHANGE. This is for a good reason. See above note
 	ds.rx_buf.len = 0;
 	ds.blocking_tx_callback = &tx_blocking;	//todo - figure something out here, cus we can't use the same socket...
@@ -34,37 +34,6 @@ Motor::Motor(unsigned char addr, Serial * ser)
 }
 
 
-Motor::~Motor()
-{
-	delete[] ds.tx_buf.buf;
-	delete[] ds.rx_buf.buf;
-}
-
-Motor::Motor(Motor&& other) noexcept
-    : dp_ctl(other.dp_ctl), dp_periph(other.dp_periph),
-      ds(other.ds)
-{
-    ds.ctl_base.buf    = (unsigned char*)(&dp_ctl);
-    ds.periph_base.buf = (unsigned char*)(&dp_periph);
-    other.ds.tx_buf.buf = nullptr;
-    other.ds.rx_buf.buf = nullptr;
-}
-
-
-
-
-Motor& Motor::operator=(Motor&& other) noexcept
-{
-    if (this == &other) return *this;
-    delete[] ds.tx_buf.buf;
-    delete[] ds.rx_buf.buf;
-    dp_ctl = other.dp_ctl; dp_periph = other.dp_periph;
-    ds = other.ds;
-    ds.ctl_base.buf    = (unsigned char*)(&dp_ctl);
-    ds.periph_base.buf = (unsigned char*)(&dp_periph);
-    other.ds.tx_buf.buf = nullptr; other.ds.rx_buf.buf = nullptr;
-    return *this;
-}
 
 bool Motor::write_zero_offset(void)
 {

@@ -14,12 +14,11 @@ public:
 	dartt_mctl_params_t dp_ctl;
 	dartt_mctl_params_t dp_periph;
 	dartt_sync_t ds;
+	unsigned char tx_buf_mem[SERIAL_BUFFER_SIZE];
+	unsigned char rx_buf_mem[SERIAL_BUFFER_SIZE];
 
 	Motor(unsigned char addr, Serial * ser);
-	~Motor();
 
-	Motor(Motor&& other) noexcept;
-	Motor& operator=(Motor&& other) noexcept;
 	Motor(const Motor&) = delete;
 	Motor& operator=(const Motor&) = delete;
 

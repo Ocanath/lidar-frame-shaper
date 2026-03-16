@@ -44,7 +44,11 @@ int main(int argc, char* argv[])
 	}
 
 	LidarSystem lidar; 
-	lidar.connect(2381);
+	bool lidar_connected = lidar.connect(2381);
+	if(lidar_connected)
+	{
+		printf("Bind success to lidar port - ready for data\n");
+	}
 
 	Motor m(0, &serial); 	//dartt addr = 0
 
