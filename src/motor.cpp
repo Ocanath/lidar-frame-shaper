@@ -1,7 +1,7 @@
 #include "motor.h"
 
 
-Motor::Motor(unsigned char addr)
+Motor::Motor(unsigned char addr, Serial * ser)
 {
 
 	//iniialize the motor
@@ -27,9 +27,9 @@ Motor::Motor(unsigned char addr)
 	ds.rx_buf.size = SERIAL_BUFFER_SIZE - NUM_BYTES_COBS_OVERHEAD;	//DO NOT CHANGE. This is for a good reason. See above note
 	ds.rx_buf.len = 0;
 	ds.blocking_tx_callback = &tx_blocking;	//todo - figure something out here, cus we can't use the same socket...
-	ds.user_context_tx = (void*)(&socket);
+	ds.user_context_tx = (void*)(ser);
 	ds.blocking_rx_callback = &rx_blocking;
-	ds.user_context_rx = (void*)(&socket);
+	ds.user_context_rx = (void*)(ser);
 	ds.timeout_ms = 10;
 }
 
@@ -38,21 +38,16 @@ Motor::~Motor()
 {
 	delete[] ds.tx_buf.buf;
 	delete[] ds.rx_buf.buf;
-	udp_disconnect(&socket);
 }
 
 Motor::Motor(Motor&& other) noexcept
     : dp_ctl(other.dp_ctl), dp_periph(other.dp_periph),
-      ds(other.ds), socket(other.socket)
+      ds(other.ds)
 {
     ds.ctl_base.buf    = (unsigned char*)(&dp_ctl);
     ds.periph_base.buf = (unsigned char*)(&dp_periph);
-    ds.user_context_tx = (void*)(&socket);
-    ds.user_context_rx = (void*)(&socket);
     other.ds.tx_buf.buf = nullptr;
     other.ds.rx_buf.buf = nullptr;
-    other.socket.socket    = TCS_SOCKET_INVALID;
-    other.socket.connected = false;
 }
 
 
@@ -63,15 +58,11 @@ Motor& Motor::operator=(Motor&& other) noexcept
     if (this == &other) return *this;
     delete[] ds.tx_buf.buf;
     delete[] ds.rx_buf.buf;
-    udp_disconnect(&socket);
     dp_ctl = other.dp_ctl; dp_periph = other.dp_periph;
-    ds = other.ds; socket = other.socket;
+    ds = other.ds;
     ds.ctl_base.buf    = (unsigned char*)(&dp_ctl);
     ds.periph_base.buf = (unsigned char*)(&dp_periph);
-    ds.user_context_tx = (void*)(&socket);
-    ds.user_context_rx = (void*)(&socket);
     other.ds.tx_buf.buf = nullptr; other.ds.rx_buf.buf = nullptr;
-    other.socket.socket = TCS_SOCKET_INVALID; other.socket.connected = false;
     return *this;
 }
 

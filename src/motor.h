@@ -4,8 +4,9 @@
 #include "dartt_mctl_params.h"
 #include <vector>
 #include "dartt_sync.h"
-#include "tinycsocket.h"
 #include "dartt_init.h"
+#include "tinycsocket.h"
+#include "serial.h"
 
 class Motor
 {
@@ -13,9 +14,8 @@ public:
 	dartt_mctl_params_t dp_ctl;
 	dartt_mctl_params_t dp_periph;
 	dartt_sync_t ds;
-	UdpState socket;
 
-	Motor(unsigned char addr);
+	Motor(unsigned char addr, Serial * ser);
 	~Motor();
 
 	Motor(Motor&& other) noexcept;

@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
 	LidarSystem lidar; 
 	lidar.connect(2381);
 
-	Motor m(0); 	//dartt addr = 0
+	Motor m(0, &serial); 	//dartt addr = 0
 
 	bool running = true;
 	while (running)
