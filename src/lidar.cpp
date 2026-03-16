@@ -97,7 +97,14 @@ void LidarSystem::recvLoop()
 
 void LidarSystem::decodePacket(const uint8_t* data, size_t /*len*/)
 {
-    for (int b = 0; b < 12; ++b) 
+    // Footer: bytes 1200–1203 = timestamp (µs since top of hour, little-endian)
+    uint32_t ts = static_cast<uint32_t>(data[1200])
+                | static_cast<uint32_t>(data[1201]) << 8
+                | static_cast<uint32_t>(data[1202]) << 16
+                | static_cast<uint32_t>(data[1203]) << 24;
+    latestTimestamp_ = ts;
+
+    for (int b = 0; b < 12; ++b)
 	{
         const uint8_t* block = data + b * 100;
         // Sanity: block sync bytes should be 0xFF, 0xEE

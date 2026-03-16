@@ -70,7 +70,13 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
+			printf("%f\n", (float)m.dp_periph.theta_rem_m *180.f / ((float)(1<<14)) );
 			//write
+		}
+
+		if (lidar.pollNewFrame())
+		{
+			printf("lidar timestamp: %u us\n", lidar.latestTimestamp());
 		}
 		
 	}

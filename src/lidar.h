@@ -24,6 +24,9 @@ public:
     // Returns true and consumes the flag if a new frame arrived since last call
     bool pollNewFrame();
 
+    // Latest packet timestamp (microseconds since top of hour), 0 if none received
+    uint32_t latestTimestamp() const { return latestTimestamp_.load(); }
+
     // Settings (read/write from main thread only, before connect)
     int      bufferDepth       = 1024;
     int      maxPointsPerFrame = 2000;
@@ -38,7 +41,8 @@ private:
     std::deque<Frame>   frames_;             // circular buffer, max bufferDepth entries
     Frame               pending_;            // accumulating current scan
     float               lastAzimuth_ = -1.f;
-    std::atomic<bool>   newFrameFlag_ = false;
+    std::atomic<bool>     newFrameFlag_     = false;
+    std::atomic<uint32_t> latestTimestamp_  = 0;
 
     void recvLoop();
     void decodePacket(const uint8_t* data, size_t len);
