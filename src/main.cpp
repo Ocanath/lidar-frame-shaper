@@ -53,8 +53,18 @@ int main(int argc, char* argv[])
 
 
 	Motor m(0, &serial); 	//dartt addr = 0
-	AudioWriter audio_writer(0, 71, serial);
-	audio_writer.play("assets/startupsound_processed.wav");
+	int writer_idx = index_of_field(&m.dp_ctl.audio, m.ds.ctl_base.buf, m.ds.ctl_base.size);
+	if(writer_idx < 0)
+	{
+		printf("Catastrophic error - no writer present in dartt control structure\n");
+		return writer_idx;
+	}
+	AudioWriter audio_writer(0, writer_idx, serial);
+	if(audio_writer.play("assets/startupsound_processed.wav") != 0)
+	{
+		printf("No device present - exiting\n");
+		return 1;
+	}
 	m.dp_ctl.mctl_vq = {
 		.kpki = {
 			.kp = {
@@ -76,6 +86,7 @@ int main(int argc, char* argv[])
 	if(dartt_sync(&mctlvq, &m.ds) != DARTT_PROTOCOL_SUCCESS)
 	{
 		printf("Failed to update motor control settings");
+		return 1;
 	}
 
 	bool running = true;

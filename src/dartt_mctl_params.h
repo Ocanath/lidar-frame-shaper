@@ -10,6 +10,7 @@
 #include "profiles.h"
 #include "pctl.h"
 #include "trig_fixed.h"
+#include "audio.h"
 
 typedef enum {FOC_MODE, SINUSOIDAL_MODE, PCTL_IQ, PCTL_VQ, OPEN_LOOP_MODE} control_mode_t;	//foc with velocity?
 
@@ -50,6 +51,8 @@ typedef struct dartt_mctl_params_t
 	int32_t theta_offset;	//global offset applied to the rotor position
 
 	uint32_t tick;	//millisecond tick
+
+	audio_renderer_t audio;
 }dartt_mctl_params_t;
 
 extern dartt_mctl_params_t gl_dp;
