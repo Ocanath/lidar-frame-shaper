@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
 			m.write_data();
 			float qd_deg_wrapped = wrap_2pi(m.qd)*180.f/M_PI;
 			float q_deg_wrapped = wrap_2pi(m.q)*180.f/M_PI;
-			printf("%f, %f\n", qd_deg_wrapped, q_deg_wrapped);
+			// printf("%f, %f\n", qd_deg_wrapped, q_deg_wrapped);
 		}
 		if (lidar.pollNewFrame())
 		{
