@@ -10,3 +10,6 @@
 [submodule "external/serial-cross-platform"]
 	path = external/serial-cross-platform
 	url = https://github.com/ocanath/serial-cross-platform
+[submodule "external/dartt_audio"]
+	path = external/dartt_audio
+	url = https://github.com/ocanath/dartt_audio

@@ -17,6 +17,9 @@ add_subdirectory(external/serial-cross-platform)
 # dartt-protocol (provides: dartt_protocol, dartt_checksum)
 add_subdirectory(external/dartt-protocol)
 
+# add dartt audio
+add_subdirectory(external/dartt_audio)
+
 # nlohmann/json (provides: nlohmann_json::nlohmann_json)
 # add_subdirectory(external/json)
 
@@ -58,4 +61,5 @@ target_link_libraries(${APP_TARGET}
     dartt_checksum
     Eigen3::Eigen
 	serial
+	dartt_audio
 )

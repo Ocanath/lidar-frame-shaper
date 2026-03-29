@@ -30,6 +30,7 @@
 #include "motor.h"
 #include "serial.h"
 #include "lidar.h"
+#include "AudioWriter.h"
 
 int main(int argc, char* argv[])
 {
@@ -49,6 +50,7 @@ int main(int argc, char* argv[])
 	{
 		printf("Bind success to lidar port - ready for data\n");
 	}
+
 
 	Motor m(0, &serial); 	//dartt addr = 0
 	m.dp_ctl.mctl_vq = {
