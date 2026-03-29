@@ -55,7 +55,7 @@ int main(int argc, char* argv[])
 
 	UdpForwarder forwarder;
 	forwarder.setDestination("127.0.0.1", 9000);
-	forwarder.startWebServer(80);
+	forwarder.startWebServer(1050);
 
 	LidarSystem lidar;
 	lidar.angleBuffer   = &angleBuffer;
