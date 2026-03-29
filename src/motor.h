@@ -27,8 +27,7 @@ public:
 	float qdot;	//radians per second
 
 	float qd;	//also radians. wrapped on target.
-
-
+	float qdset;
 
 	int read_data(void);
 	int write_data(void);

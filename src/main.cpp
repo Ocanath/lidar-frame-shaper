@@ -113,10 +113,19 @@ int main(int argc, char* argv[])
 	init_smoothing_mem(&sm);
 
 	bool running = true;
-	
+	m.qdset = 0.f;
+	uint32_t prevtick = get_tick32();
 	while (running)
 	{
 		uint32_t tick = get_tick32();
+
+		if((tick - prevtick) > 2000)
+		{
+			prevtick = tick;
+			m.qdset += GOLDEN_ANGLE_RADIANS;
+		}
+
+		smooth_qd(m.qdset, 1.f, m.q, &sm, &m.qd, tick);
 
 		int dartt_rc = m.read_data();
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
@@ -125,9 +134,9 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			m.qd += 0.0001;
+			// m.qd += 0.0001;
 			m.write_data();
-			printf("%f, %f\n", m.qd*180.f/M_PI, m.q*180.f/M_PI);
+			// printf("%f, %f\n", m.qd*180.f/M_PI, m.q*180.f/M_PI);
 		}
 		if (lidar.pollNewFrame())
 		{

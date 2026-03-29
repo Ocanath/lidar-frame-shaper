@@ -32,8 +32,13 @@ Motor::Motor(unsigned char addr, Serial * ser)
 	ds.user_context_rx = (void*)(ser);
 	ds.timeout_ms = 10;
 
+	qdset = 0.f;
+	qd = 0.f;
 
-		//TODO: make this member function of the motor class
+	q = 0.f;
+	qdot = 0.f;
+	iq=0.f;
+	
 	read_slice = 
 	{
 		.buf = (unsigned char *)(&dp_ctl.theta_rem_m),
