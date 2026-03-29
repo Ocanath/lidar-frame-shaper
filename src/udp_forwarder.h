@@ -6,6 +6,7 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
+#include <cstdint>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -28,6 +29,8 @@
 
 class UdpForwarder {
 public:
+    const char* settingsFile = "forwarder.ini";
+
     UdpForwarder()
     {
         udpSock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
@@ -44,10 +47,40 @@ public:
 
     void setDestination(const char* ip, uint16_t port)
     {
-        std::lock_guard<std::mutex> lk(destMtx_);
-        strncpy(dest_.ip, ip, sizeof(dest_.ip) - 1);
-        dest_.ip[sizeof(dest_.ip) - 1] = '\0';
-        dest_.port = port;
+        {
+            std::lock_guard<std::mutex> lk(destMtx_);
+            strncpy(dest_.ip, ip, sizeof(dest_.ip) - 1);
+            dest_.ip[sizeof(dest_.ip) - 1] = '\0';
+            dest_.port = port;
+        }
+        saveSettings();
+    }
+
+    // Load ip/port from settingsFile. Falls back to current dest_ if file is absent or malformed.
+    void loadSettings()
+    {
+        FILE* f = fopen(settingsFile, "r");
+        if (!f) return;
+        char line[128];
+        char loadedIp[64]  = {};
+        uint16_t loadedPort = 0;
+        while (fgets(line, sizeof(line), f))
+        {
+            char val[64] = {};
+            if (sscanf(line, "ip=%63s", val) == 1)
+                strncpy(loadedIp, val, sizeof(loadedIp) - 1);
+            else if (sscanf(line, "port=%hu", &loadedPort) == 1)
+                ;
+        }
+        fclose(f);
+        if (loadedIp[0] && loadedPort)
+        {
+            std::lock_guard<std::mutex> lk(destMtx_);
+            strncpy(dest_.ip, loadedIp, sizeof(dest_.ip) - 1);
+            dest_.ip[sizeof(dest_.ip) - 1] = '\0';
+            dest_.port = loadedPort;
+            printf("Forwarder loaded destination: %s:%u\n", dest_.ip, dest_.port);
+        }
     }
 
     // Thread-safe. Called from lidar recv thread via onPacketReady.
@@ -67,6 +100,7 @@ public:
 
     void startWebServer(uint16_t httpPort = 80)
     {
+        loadSettings();
         webRunning_ = true;
         webThread_  = std::thread(&UdpForwarder::webServerLoop, this, httpPort);
     }
@@ -82,6 +116,15 @@ private:
     sock_t            udpSock_    = sock_bad();
     std::thread       webThread_;
     std::atomic<bool> webRunning_ = false;
+
+    void saveSettings()
+    {
+        FILE* f = fopen(settingsFile, "w");
+        if (!f) { perror("UdpForwarder: save settings"); return; }
+        std::lock_guard<std::mutex> lk(destMtx_);
+        fprintf(f, "ip=%s\nport=%u\n", dest_.ip, dest_.port);
+        fclose(f);
+    }
 
     static void parseField(const char* body, const char* key, char* out, size_t outLen)
     {
