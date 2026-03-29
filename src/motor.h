@@ -21,6 +21,15 @@ public:
 
 	Motor(const Motor&) = delete;
 	Motor& operator=(const Motor&) = delete;
+
+
+	int read_data(void);
+	int write_data(void);
+
+private:
+	dartt_buffer_t read_slice;
+	dartt_buffer_t write_slice;
+
 };
 
 #endif

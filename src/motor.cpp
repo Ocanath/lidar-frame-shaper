@@ -31,5 +31,35 @@ Motor::Motor(unsigned char addr, Serial * ser)
 	ds.blocking_rx_callback = &rx_blocking;
 	ds.user_context_rx = (void*)(ser);
 	ds.timeout_ms = 10;
+
+
+		//TODO: make this member function of the motor class
+	read_slice = 
+	{
+		.buf = (unsigned char *)(&dp_ctl.theta_rem_m),
+		.size = sizeof(uint32_t) * 3,
+		.len = sizeof(uint32_t) * 3
+	};
+	write_slice = {
+		.buf = (unsigned char *)(&dp_ctl.command_word),
+		.size = sizeof(dp_ctl.command_word),
+		.len = sizeof(dp_ctl.command_word)
+	};
 }
 
+int Motor::read_data(void)
+{
+	int rc = dartt_read_multi(&read_slice, &ds);
+	if(rc != DARTT_PROTOCOL_SUCCESS)
+	{
+		return rc;
+	}
+	//unit convert stuff
+	return rc;
+}
+
+int Motor::write_data(void)
+{
+	//unit convert stuff
+	return dartt_write_multi(&write_slice, &ds);
+}

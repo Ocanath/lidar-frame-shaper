@@ -32,6 +32,8 @@
 #include "lidar.h"
 #include "AudioWriter.h"
 
+#define GOLDEN_ANGLE_RADIANS	2.39996322973f 
+
 int main(int argc, char* argv[])
 {
 	(void)argc;
@@ -65,20 +67,9 @@ int main(int argc, char* argv[])
 		printf("No device present - exiting\n");
 		return 1;
 	}
-	//TODO: make this member function of the motor class
-	dartt_buffer_t r = {
-		.buf = m.ds.ctl_base.buf,
-		.size = sizeof(uint32_t) * 4,
-		.len = sizeof(uint32_t) * 4
-	};
-	dartt_read_multi(&r, &m.ds);
+	m.read_data();
 	m.dp_ctl.command_word = wrap_2pi_14b(m.dp_periph.theta_rem_m);	//start position = current position
-	dartt_buffer_t w = {
-		.buf = (unsigned char *)(&m.dp_ctl.command_word),
-		.size = sizeof(m.dp_ctl.command_word),
-		.len = sizeof(m.dp_ctl.command_word)
-	};
-	dartt_write_multi(&w, &m.ds);
+	m.write_data();
 
 	m.dp_ctl.mctl_vq = {
 		.kpki = {
@@ -111,19 +102,23 @@ int main(int argc, char* argv[])
 	}
 
 	bool running = true;
+	
 	while (running)
 	{
 
 
-		int dartt_rc = dartt_read_multi(&r, &m.ds);
+		int dartt_rc = m.read_data();
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
 		{
 			// printf("dartt read error %d\n", dartt_rc);
 		}
 		else
 		{
-			printf("%f\n", (float)m.dp_periph.theta_rem_m *180.f / ((float)(1<<14)) );
+			// printf("%f\n", (float)m.dp_periph.theta_rem_m *180.f / ((float)(1<<14)) );
 			//write
+			m.dp_ctl.command_word = wrap_2pi_14b(m.dp_ctl.command_word + 1);
+			m.write_data();
+			printf("%d\n", m.dp_ctl.command_word);
 		}
 
 		if (lidar.pollNewFrame())
