@@ -9,3 +9,5 @@ android/local.properties
 *.apk
 *.aab
 ***.lock
+
+forwarder.ini
