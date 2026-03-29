@@ -4,7 +4,7 @@
 #include "dartt_mctl_params.h"
 #include <vector>
 #include "dartt_sync.h"
-#include "dartt_init.h"
+#include "serial_callbacks.h"
 #include "tinycsocket.h"
 #include "serial.h"
 

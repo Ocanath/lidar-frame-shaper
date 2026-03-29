@@ -20,7 +20,7 @@
 #include "dartt_sync.h"
 #include "checksum.h"
 
-#include "dartt_init.h"
+#include "serial_callbacks.h"
 
 #include <Eigen/Dense>
 

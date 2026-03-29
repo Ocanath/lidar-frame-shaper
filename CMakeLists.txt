@@ -29,7 +29,7 @@ add_subdirectory(external/eigen)
 
 set(APP_SOURCES
     src/main.cpp
-    src/dartt_init.cpp
+    src/serial_callbacks.cpp
     src/motor.cpp
 	src/trig_fixed.c
 	src/lidar.cpp
