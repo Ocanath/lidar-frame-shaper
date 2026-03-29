@@ -33,6 +33,7 @@
 #include "AudioWriter.h"
 #include "tick.h"
 #include "angle_buffer.h"
+#include "udp_forwarder.h"
 #include "Smoothing.h"
 
 
@@ -52,10 +53,14 @@ int main(int argc, char* argv[])
 
 	AngleBuffer angleBuffer;
 
+	UdpForwarder forwarder;
+	forwarder.setDestination("127.0.0.1", 9000);
+	forwarder.startWebServer(80);
+
 	LidarSystem lidar;
-	lidar.angleBuffer    = &angleBuffer;
-	lidar.onPacketReady  = [](const uint8_t* /*data*/, size_t len) {
-		(void)len;
+	lidar.angleBuffer   = &angleBuffer;
+	lidar.onPacketReady = [&forwarder](const uint8_t* data, size_t len) {
+		forwarder.send(data, len);
 	};
 	bool lidar_connected = lidar.connect(2381);
 	if(lidar_connected)
