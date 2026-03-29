@@ -31,6 +31,8 @@
 #include "serial.h"
 #include "lidar.h"
 #include "AudioWriter.h"
+#include "milliseconds.h"
+
 
 #define GOLDEN_ANGLE_RADIANS	2.39996322973f 
 
@@ -110,7 +112,7 @@ int main(int argc, char* argv[])
 	
 	while (running)
 	{
-
+		uint32_t tick = get_tick32();
 
 		int dartt_rc = m.read_data();
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
