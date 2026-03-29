@@ -64,7 +64,15 @@ int main(int argc, char* argv[])
 		},
 		.out_sat = 3546
 	};
-	
+	dartt_buffer_t mctlvq = {
+		.buf = (unsigned char *)(&m.dp_ctl.mctl_vq),
+		.size = sizeof(m.dp_ctl.mctl_vq),
+		.len = sizeof(m.dp_ctl.mctl_vq)
+	};
+	if(dartt_sync(&mctlvq, &m.ds) != DARTT_PROTOCOL_SUCCESS)
+	{
+		printf("Failed to update motor control settings");
+	}
 
 	bool running = true;
 	while (running)
