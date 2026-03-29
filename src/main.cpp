@@ -31,7 +31,8 @@
 #include "serial.h"
 #include "lidar.h"
 #include "AudioWriter.h"
-#include "milliseconds.h"
+#include "tick.h"
+#include "angle_buffer.h"
 #include "Smoothing.h"
 
 
@@ -49,7 +50,13 @@ int main(int argc, char* argv[])
 		printf("Error: failed to connect to a serial port\n");
 	}
 
-	LidarSystem lidar; 
+	AngleBuffer angleBuffer;
+
+	LidarSystem lidar;
+	lidar.angleBuffer    = &angleBuffer;
+	lidar.onPacketReady  = [](const uint8_t* /*data*/, size_t len) {
+		(void)len;
+	};
 	bool lidar_connected = lidar.connect(2381);
 	if(lidar_connected)
 	{
@@ -134,11 +141,12 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
+			angleBuffer.push(m.dp_periph.theta_rem_m, get_microsecond64());
 			// m.qd += 0.0001;
 			m.write_data();
 			float qd_deg_wrapped = wrap_2pi(m.qd)*180.f/M_PI;
 			float q_deg_wrapped = wrap_2pi(m.q)*180.f/M_PI;
-			printf("%f, %f\n", qd_deg_wrapped, q_deg_wrapped);
+			// printf("%f, %f\n", qd_deg_wrapped, q_deg_wrapped);
 		}
 		if (lidar.pollNewFrame())
 		{

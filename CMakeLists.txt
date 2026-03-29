@@ -36,7 +36,7 @@ set(APP_SOURCES
     src/motor.cpp
 	src/trig_fixed.c
 	src/lidar.cpp
-	src/milliseconds.cpp
+	src/tick.cpp
 	src/sin-math.c
 	src/Smoothing.c
 )
