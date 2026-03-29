@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
 		}
 		if (lidar.pollNewFrame())
 		{
-			printf("lidar timestamp: %u us\n", lidar.latestTimestamp());
+			// printf("lidar timestamp: %u us\n", lidar.latestTimestamp());
 		}
 		
 	}
