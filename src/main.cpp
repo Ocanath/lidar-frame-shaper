@@ -115,18 +115,14 @@ int main(int argc, char* argv[])
 		int dartt_rc = m.read_data();
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
 		{
-			// printf("dartt read error %d\n", dartt_rc);
+			printf("critical: dartt read error %d\n", dartt_rc);
 		}
 		else
 		{
-			// printf("%f\n", (float)m.dp_periph.theta_rem_m *180.f / ((float)(1<<14)) );
-			//write
-			// m.dp_ctl.command_word = wrap_2pi_14b(m.dp_ctl.command_word + 1);
 			m.qd += 0.0001;
 			m.write_data();
 			printf("%f, %f\n", m.qd*180.f/M_PI, m.q*180.f/M_PI);
 		}
-
 		if (lidar.pollNewFrame())
 		{
 			printf("lidar timestamp: %u us\n", lidar.latestTimestamp());
