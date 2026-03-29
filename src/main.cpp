@@ -65,15 +65,36 @@ int main(int argc, char* argv[])
 		printf("No device present - exiting\n");
 		return 1;
 	}
+	//TODO: make this member function of the motor class
+	dartt_buffer_t r = {
+		.buf = m.ds.ctl_base.buf,
+		.size = sizeof(uint32_t) * 4,
+		.len = sizeof(uint32_t) * 4
+	};
+	dartt_read_multi(&r, &m.ds);
+	m.dp_ctl.command_word = wrap_2pi_14b(m.dp_periph.theta_rem_m);	//start position = current position
+	dartt_buffer_t w = {
+		.buf = (unsigned char *)(&m.dp_ctl.command_word),
+		.size = sizeof(m.dp_ctl.command_word),
+		.len = sizeof(m.dp_ctl.command_word)
+	};
+	dartt_write_multi(&w, &m.ds);
+
 	m.dp_ctl.mctl_vq = {
 		.kpki = {
 			.kp = {
-				.i32 = 500,
+				.i32 = 400,
 				.radix = 8
-			}
+			},
+			.ki = {
+				.i32 = 3,
+				.radix = 10
+			},
+			.x_integral_div = 10,
+			.x_sat = 1000
 		},
 		.kd = {
-			.i32 = 50,
+			.i32 = 40,
 			.radix = 5
 		},
 		.out_sat = 3546
@@ -94,12 +115,6 @@ int main(int argc, char* argv[])
 	{
 
 
-		//TODO: make this member function of the motor class
-		dartt_buffer_t r = {
-			.buf = m.ds.ctl_base.buf,
-			.size = sizeof(uint32_t) * 4,
-			.len = sizeof(uint32_t) * 4
-		};
 		int dartt_rc = dartt_read_multi(&r, &m.ds);
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
 		{
