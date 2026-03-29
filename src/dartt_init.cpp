@@ -2,21 +2,16 @@
 #include "serial.h"
 #include <cstdio>
 
-unsigned char tx_mem[SERIAL_BUFFER_SIZE] = {};
-unsigned char rx_dartt_mem[SERIAL_BUFFER_SIZE] = {};
-unsigned char rx_cobs_mem[SERIAL_BUFFER_SIZE] = {};
-
 int tx_blocking(unsigned char addr, dartt_buffer_t * b, void * user_context, uint32_t timeout)
 {
 	if(user_context == NULL)
 	{
 		return -2;
 	}
- 	Serial * serial = (Serial*)user_context;
-
+	Serial * pser = (Serial*)(user_context);
 	cobs_buf_t cb = {
 		.buf = b->buf,
-		.size = b->size,
+		.size = SERIAL_BUFFER_SIZE,	//important! this has to be the true size - b doesn't know what size it actually has. Use SERIAL_BUFFER_SIZE as source of truth for size since sizeof(var) is out of scope
 		.length = b->len,
 		.encoded_state = COBS_DECODED
 	};
@@ -25,7 +20,7 @@ int tx_blocking(unsigned char addr, dartt_buffer_t * b, void * user_context, uin
 	{
 		return rc;
 	}
-	rc = serial->write(cb.buf, (int)cb.length);
+	rc = pser->write(cb.buf, (int)cb.length);
 	if(rc == (int)cb.length)
 	{
 		return DARTT_PROTOCOL_SUCCESS;
@@ -42,22 +37,16 @@ int rx_blocking(dartt_buffer_t * buf, void * user_context, uint32_t timeout)
 	{
 		return -2;
 	}
-
- 	Serial * serial = (Serial*)user_context;
-
+	Serial * pser = (Serial*)(user_context);
 	cobs_buf_t cb_enc =
 	{
-		.buf = rx_cobs_mem,
-		.size = sizeof(rx_cobs_mem),
+		.buf = buf->buf,
+		.size = SERIAL_BUFFER_SIZE,	//important! this has to be the true size - b doesn't know what size it actually has. Use SERIAL_BUFFER_SIZE as source of truth for size since sizeof(var) is out of scope
 		.length = 0
 	};
 
 	int rc;
-	if (! (serial->connected()))
-	{
-		return -1;
-	}
-	rc = serial->read_until_delimiter(cb_enc.buf, cb_enc.size, 0, timeout);
+	rc = pser->read_until_delimiter(cb_enc.buf, cb_enc.size, 0, timeout);
 
 	if (rc >= 0)
 	{

@@ -51,6 +51,20 @@ int main(int argc, char* argv[])
 	}
 
 	Motor m(0, &serial); 	//dartt addr = 0
+	m.dp_ctl.mctl_vq = {
+		.kpki = {
+			.kp = {
+				.i32 = 500,
+				.radix = 8
+			}
+		},
+		.kd = {
+			.i32 = 50,
+			.radix = 5
+		},
+		.out_sat = 3546
+	};
+	
 
 	bool running = true;
 	while (running)

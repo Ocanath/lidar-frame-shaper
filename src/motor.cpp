@@ -18,15 +18,15 @@ Motor::Motor(unsigned char addr, Serial * ser)
 		ds.periph_base.buf[i] = 0;
 	}
 
+	ds.base_offset = 0;
 	ds.msg_type = TYPE_SERIAL_MESSAGE;
-
 	ds.tx_buf.buf = tx_buf_mem;
-	ds.tx_buf.size = SERIAL_BUFFER_SIZE - NUM_BYTES_COBS_OVERHEAD;		//DO NOT CHANGE. This is for a good reason. See above note
+	ds.tx_buf.size = sizeof(tx_buf_mem) - NUM_BYTES_COBS_OVERHEAD;		//DO NOT CHANGE. This is for a good reason. See above note
 	ds.tx_buf.len = 0;
 	ds.rx_buf.buf = rx_buf_mem;
-	ds.rx_buf.size = SERIAL_BUFFER_SIZE - NUM_BYTES_COBS_OVERHEAD;	//DO NOT CHANGE. This is for a good reason. See above note
+	ds.rx_buf.size = sizeof(rx_buf_mem) - NUM_BYTES_COBS_OVERHEAD;	//DO NOT CHANGE. This is for a good reason. See above note
 	ds.rx_buf.len = 0;
-	ds.blocking_tx_callback = &tx_blocking;	//todo - figure something out here, cus we can't use the same socket...
+	ds.blocking_tx_callback = &tx_blocking;
 	ds.user_context_tx = (void*)(ser);
 	ds.blocking_rx_callback = &rx_blocking;
 	ds.user_context_rx = (void*)(ser);
