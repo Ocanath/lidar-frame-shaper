@@ -32,6 +32,7 @@
 #include "lidar.h"
 #include "AudioWriter.h"
 #include "milliseconds.h"
+#include "Smoothing.h"
 
 
 #define GOLDEN_ANGLE_RADIANS	2.39996322973f 
@@ -107,6 +108,9 @@ int main(int argc, char* argv[])
 		printf("Failed to update motor control settings");
 		return 1;
 	}
+
+	smooth_mem_t sm = {};
+	init_smoothing_mem(&sm);
 
 	bool running = true;
 	

@@ -37,6 +37,8 @@ set(APP_SOURCES
 	src/trig_fixed.c
 	src/lidar.cpp
 	src/milliseconds.cpp
+	src/sin-math.c
+	src/Smoothing.c
 )
 
 # ============================================================================
