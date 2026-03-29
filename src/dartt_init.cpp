@@ -9,6 +9,10 @@ int tx_blocking(unsigned char addr, dartt_buffer_t * b, void * user_context, uin
 		return -2;
 	}
 	Serial * pser = (Serial*)(user_context);
+	if(pser->connected() == false)
+	{
+		return -2;
+	}
 	cobs_buf_t cb = {
 		.buf = b->buf,
 		.size = SERIAL_BUFFER_SIZE,	//important! this has to be the true size - b doesn't know what size it actually has. Use SERIAL_BUFFER_SIZE as source of truth for size since sizeof(var) is out of scope
@@ -20,6 +24,7 @@ int tx_blocking(unsigned char addr, dartt_buffer_t * b, void * user_context, uin
 	{
 		return rc;
 	}
+
 	rc = pser->write(cb.buf, (int)cb.length);
 	if(rc == (int)cb.length)
 	{
@@ -38,6 +43,11 @@ int rx_blocking(dartt_buffer_t * buf, void * user_context, uint32_t timeout)
 		return -2;
 	}
 	Serial * pser = (Serial*)(user_context);
+	if(pser->connected() == false)
+	{
+		return -2;
+	}
+
 	cobs_buf_t cb_enc =
 	{
 		.buf = buf->buf,
