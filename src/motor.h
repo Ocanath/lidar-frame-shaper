@@ -22,10 +22,17 @@ public:
 	Motor(const Motor&) = delete;
 	Motor& operator=(const Motor&) = delete;
 
+	float q;	//radians
+	float iq;	//unconverted adc units for now
+	float qdot;	//radians per second
+
+	float qd;	//also radians. wrapped on target.
+
+
 
 	int read_data(void);
 	int write_data(void);
-
+	int rezero(void);	//set current position to zero on the motor
 private:
 	dartt_buffer_t read_slice;
 	dartt_buffer_t write_slice;

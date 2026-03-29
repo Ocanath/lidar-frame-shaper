@@ -55,11 +55,44 @@ int Motor::read_data(void)
 		return rc;
 	}
 	//unit convert stuff
+	q = ((float)dp_periph.theta_rem_m)/((float)(1<<14));
+	qdot = ((float)dp_periph.dtheta_fixedpoint_rad_p_sec)/16.f;
+	iq = (float)dp_periph.iq;
 	return rc;
 }
 
 int Motor::write_data(void)
 {
+	int32_t radians_digital = (int32_t)(qd * ((float)(1<<14)));
+	dp_ctl.command_word = wrap_2pi_14b(radians_digital);	//redundant cus controller does this but why not
 	//unit convert stuff
 	return dartt_write_multi(&write_slice, &ds);
+}
+
+
+int Motor::rezero(void)
+{	
+	dartt_buffer_t unwrappedangle = {
+		.buf = (unsigned char *)(&dp_ctl.unwrap_state.unwrapped_angle),
+		.size = sizeof(dp_ctl.unwrap_state.unwrapped_angle),
+		.len = sizeof(dp_ctl.unwrap_state.unwrapped_angle)
+	};
+	int64_t avg_angle = 0;
+	for(int i = 0; i < 10; i++)
+	{
+		int rc = dartt_read_multi(&unwrappedangle, &ds);	//get unwrapped angle value
+		if(rc != DARTT_PROTOCOL_SUCCESS)
+		{
+			return rc;
+		}
+		avg_angle += dp_periph.unwrap_state.unwrapped_angle;
+	}
+	avg_angle /= 10;
+	dp_ctl.theta_offset = avg_angle;
+	dartt_buffer_t thetaoffset = {
+		.buf = (unsigned char *)(&dp_ctl.theta_offset),
+		.size = sizeof(dp_ctl.theta_offset),
+		.len = sizeof(dp_ctl.theta_offset)
+	};
+	return dartt_write_multi(&thetaoffset, &ds);
 }

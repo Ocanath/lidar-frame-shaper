@@ -67,8 +67,13 @@ int main(int argc, char* argv[])
 		printf("No device present - exiting\n");
 		return 1;
 	}
+	if(m.rezero() != DARTT_PROTOCOL_SUCCESS)
+	{
+		printf("Failed to rezero, exiting\n");
+		return 1;
+	}
 	m.read_data();
-	m.dp_ctl.command_word = wrap_2pi_14b(m.dp_periph.theta_rem_m);	//start position = current position
+	m.dp_ctl.command_word = 0;	
 	m.write_data();
 
 	m.dp_ctl.mctl_vq = {
@@ -116,9 +121,10 @@ int main(int argc, char* argv[])
 		{
 			// printf("%f\n", (float)m.dp_periph.theta_rem_m *180.f / ((float)(1<<14)) );
 			//write
-			m.dp_ctl.command_word = wrap_2pi_14b(m.dp_ctl.command_word + 1);
+			// m.dp_ctl.command_word = wrap_2pi_14b(m.dp_ctl.command_word + 1);
+			m.qd += 0.0001;
 			m.write_data();
-			printf("%d\n", m.dp_ctl.command_word);
+			printf("%f, %f\n", m.qd*180.f/M_PI, m.q*180.f/M_PI);
 		}
 
 		if (lidar.pollNewFrame())
