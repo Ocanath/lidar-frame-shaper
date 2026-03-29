@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
 
 	bool running = true;
 	m.qdset = 0.f;
-	uint32_t prevtick = get_tick32();
+	uint32_t prevtick = get_tick32()-1000;	//even if it underflows, it'll be correct. yay unsigned integer overflow
 	while (running)
 	{
 		uint32_t tick = get_tick32();
@@ -136,7 +136,9 @@ int main(int argc, char* argv[])
 		{
 			// m.qd += 0.0001;
 			m.write_data();
-			// printf("%f, %f\n", m.qd*180.f/M_PI, m.q*180.f/M_PI);
+			float qd_deg_wrapped = wrap_2pi(m.qd)*180.f/M_PI;
+			float q_deg_wrapped = wrap_2pi(m.q)*180.f/M_PI;
+			printf("%f, %f\n", qd_deg_wrapped, q_deg_wrapped);
 		}
 		if (lidar.pollNewFrame())
 		{
