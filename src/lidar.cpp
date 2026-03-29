@@ -214,12 +214,12 @@ void LidarSystem::decodePacket(const uint8_t* data, size_t /*len*/)
         outblock[6] = static_cast<uint8_t>((angle >> 16) & 0xFF);
         memcpy(outblock + 7, block + 4, 96);  // 32 channels unchanged
 
+        uint16_t az_raw        = static_cast<uint16_t>(block[2] | (block[3] << 8));
+        float    azimuth_block = static_cast<float>(az_raw);
+
         // ── Optional Cartesian decode ─────────────────────────────────────────
         if (enableDecoding)
         {
-            uint16_t az_raw        = static_cast<uint16_t>(block[2] | (block[3] << 8));
-            float    azimuth_block = static_cast<float>(az_raw);
-
             for (int ch = 0; ch < 32; ++ch)
             {
                 int            laser_id = ch % 16;
@@ -237,11 +237,15 @@ void LidarSystem::decodePacket(const uint8_t* data, size_t /*len*/)
                     dist_m * sinf(el_rad)
                 ));
             }
-
-            if (lastAzimuth_ > 18000.f && azimuth_block < lastAzimuth_)
-                commitPending();
-            lastAzimuth_ = azimuth_block;
         }
+
+        // Frame boundary detection always runs so pollNewFrame() works in routing-only mode
+        if (lastAzimuth_ > 18000.f && azimuth_block < lastAzimuth_)
+        {
+            if (enableDecoding) commitPending();
+            else                newFrameFlag_ = true;
+        }
+        lastAzimuth_ = azimuth_block;
     }
 
     // Copy footer unchanged
