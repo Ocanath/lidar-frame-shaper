@@ -1,5 +1,5 @@
 #include <cstdio>
-
+#define DR_WAV_IMPLEMENTATION
 #define TINYCSOCKET_IMPLEMENTATION
 
 // Platform headers (must come before GL on Windows)
@@ -53,6 +53,8 @@ int main(int argc, char* argv[])
 
 
 	Motor m(0, &serial); 	//dartt addr = 0
+	AudioWriter audio_writer(0, 71, serial);
+	audio_writer.play("assets/startupsound_processed.wav");
 	m.dp_ctl.mctl_vq = {
 		.kpki = {
 			.kp = {
