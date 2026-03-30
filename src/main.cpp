@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
 			.i32 = 40,
 			.radix = 5
 		},
-		.out_sat = 3546
+		.out_sat = 2000
 	};
 	m.dp_periph.mctl_vq.out_sat = m.dp_ctl.mctl_vq.out_sat+1;	//ensure this gets written by sync- m 
 	dartt_buffer_t mctlvq = {
@@ -133,10 +133,10 @@ int main(int argc, char* argv[])
 		if((tick - prevtick) > 2000)
 		{
 			prevtick = tick;
-			m.qdset += (GOLDEN_ANGLE_RADIANS)*1.6f;	//belt ratio
+			m.qdset += (GOLDEN_ANGLE_RADIANS)*1.47435294f;	//belt ratio
 		}
 
-		smooth_qd(m.qdset, 1.f, m.q, &sm, &m.qd, tick);
+		// smooth_qd(m.qdset, 1.f, m.q, &sm, &m.qd, tick);
 
 		int dartt_rc = m.read_data();
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
@@ -145,9 +145,10 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			int16_t lidar_angle = m.dp_periph.theta_rem_m * 10 / 16;	//scale lidar angle by the belt ratio
+			float lidar_anglef = ((float)m.dp_periph.theta_rem_m) / 1.47435294f;	//scale lidar angle by the belt ratio
+			int32_t lidar_angle = (int32_t)(lidar_anglef);
 			angleBuffer.push(lidar_angle, get_microsecond64());
-			// m.qd += 0.0001;
+			m.qd += 0.0001;
 			m.write_data();
 			// float qd_deg_wrapped = wrap_2pi(m.qd)*180.f/M_PI;
 			// float q_deg_wrapped = wrap_2pi(m.q)*180.f/M_PI;
