@@ -201,7 +201,7 @@ void LidarSystem::decodePacket(const uint8_t* data, size_t /*len*/)
                 static_cast<int64_t>(lidar_ts + static_cast<uint32_t>(b) * BLOCK_INTERVAL_US)
                 + epochOffsetUs_);
             AngleSample sample = angleBuffer->findNearest(block_prog_us);
-            angle = wrap_2pi_14b(sample.theta_rem_m);
+            angle = wrap_2pi_14b(sample.theta_rem_m);	//have to convert ratio
         }
 
         // Write modified block

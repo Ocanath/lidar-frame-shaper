@@ -26,3 +26,7 @@ git submodule update --init --recursive
 
 - You can configure static ip via nmcli using the script in scripts. Tested on my tower and it works. Set it to 192.168.1.79 
 
+- White/Orange on RJ45 goes to Light Orange on the LIDAR
+- Solid Orange on RJ45 goes to Dark Orange on the LiDAR
+- Green on the RJ45 goes to Dark Blue on the LiDAR
+- Green/White on the RJ45 goes to Light Blue on the LiDAR
