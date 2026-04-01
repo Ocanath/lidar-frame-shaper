@@ -145,8 +145,8 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			float lidar_anglef = ((float)m.dp_periph.theta_rem_m) / 1.47435294f;	//scale lidar angle by the belt ratio
-			int32_t lidar_angle = (int32_t)(lidar_anglef);
+			float lidar_anglef = ((float)-m.dp_periph.theta_rem_m) / 1.47435294f;	//scale lidar angle by the belt ratio
+			int32_t lidar_angle = wrap_2pi_14b((int32_t)(lidar_anglef));
 			angleBuffer.push(lidar_angle, get_microsecond64());
 			m.qd += 0.0001;
 			m.write_data();
