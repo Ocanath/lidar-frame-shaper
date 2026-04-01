@@ -37,7 +37,20 @@
 #include "Smoothing.h"
 
 
-#define GOLDEN_ANGLE_RADIANS	2.39996322973f 
+#define GOLDEN_ANGLE_RADIANS	2.39996322973f
+
+static const pctl_params_t DEFAULT_MCTL_VQ = {
+	.kpki = {
+		.kp             = {.i32 = 400, .radix = 8},
+		.ki             = {.i32 = 3,   .radix = 10},
+		.x_integral_div = 10,
+		.x              = 0,
+		.x_sat          = 1000,
+		.out_rshift     = 0
+	},
+	.kd      = {.i32 = 40, .radix = 5},
+	.out_sat = 3546
+};
 
 int main(int argc, char* argv[])
 {
@@ -54,7 +67,6 @@ int main(int argc, char* argv[])
 	AngleBuffer angleBuffer;
 
 	UdpForwarder forwarder;
-	forwarder.startWebServer(1050);
 
 	LidarSystem lidar;
 	lidar.angleBuffer   = &angleBuffer;
@@ -87,8 +99,9 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	m.read_data();
-	m.dp_ctl.command_word = 0;	
+	m.dp_ctl.command_word = 0;
 	m.write_data();
+	m.dp_ctl.mctl_vq = DEFAULT_MCTL_VQ;
 	m.write_pctl_data();
 	smooth_mem_t sm = {};
 	init_smoothing_mem(&sm);
@@ -101,10 +114,19 @@ int main(int argc, char* argv[])
 	//operating mode
 	enum {GOLDEN_SNAP, CONSTANT_VELOCITY};
 
-	//TODO: make these configurable over the http server
 	float gear_ratio = 1.47435294f;
 	float rpm = 1.f;
 	uint8_t mode = CONSTANT_VELOCITY;
+
+	{
+		MotorWebConfig initCfg;
+		initCfg.mode      = mode;
+		initCfg.rpm       = rpm;
+		initCfg.gear_ratio = gear_ratio;
+		initCfg.mctl_vq   = m.dp_ctl.mctl_vq;
+		forwarder.initMotorConfig(initCfg);
+	}
+	forwarder.startWebServer(1050);
 
 	while (running)
 	{
@@ -145,7 +167,17 @@ int main(int argc, char* argv[])
 		{
 			// printf("lidar timestamp: %u us\n", lidar.latestTimestamp());
 		}
-		
+
+		MotorWebConfig newCfg;
+		if (forwarder.pollMotorConfig(newCfg))
+		{
+			mode       = newCfg.mode;
+			rpm        = newCfg.rpm;
+			gear_ratio = newCfg.gear_ratio;
+			m.dp_ctl.mctl_vq = newCfg.mctl_vq;
+			m.write_pctl_data();
+		}
+
 	}
 	
 	return 0;
