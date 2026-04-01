@@ -89,55 +89,42 @@ int main(int argc, char* argv[])
 	m.read_data();
 	m.dp_ctl.command_word = 0;	
 	m.write_data();
-	m.dp_ctl.mctl_vq = {
-		.kpki = {
-			.kp = {
-				.i32 = 400,
-				.radix = 8
-			},
-			.ki = {
-				.i32 = 3,
-				.radix = 10
-			},
-			.x_integral_div = 10,
-			.x_sat = 1000
-		},
-		.kd = {
-			.i32 = 40,
-			.radix = 5
-		},
-		.out_sat = 2000
-	};
-	m.dp_periph.mctl_vq.out_sat = m.dp_ctl.mctl_vq.out_sat+1;	//ensure this gets written by sync- m 
-	dartt_buffer_t mctlvq = {
-		.buf = (unsigned char *)(&m.dp_ctl.mctl_vq),
-		.size = sizeof(m.dp_ctl.mctl_vq),
-		.len = sizeof(m.dp_ctl.mctl_vq)
-	};
-	if(dartt_sync(&mctlvq, &m.ds) != DARTT_PROTOCOL_SUCCESS)
-	{
-		printf("Failed to update motor control settings");
-		return 1;
-	}
-
+	m.write_pctl_data();
 	smooth_mem_t sm = {};
 	init_smoothing_mem(&sm);
 
 	bool running = true;
 	m.qdset = 0.f;
-	uint32_t prevtick = get_tick32()-1000;	//even if it underflows, it'll be correct. yay unsigned integer overflow
+	uint32_t start_time = get_tick32();	//even if it underflows, it'll be correct. yay unsigned integer overflow
+	uint32_t prev_tick = 0;
+
+	//operating mode
+	enum {GOLDEN_SNAP, CONSTANT_VELOCITY};
+
+	//TODO: make these configurable over the http server
+	float gear_ratio = 1.47435294f;
+	float rpm = 1.f;
+	uint8_t mode = CONSTANT_VELOCITY;
+
 	while (running)
 	{
-		uint32_t tick = get_tick32();
+		uint32_t tick = get_tick32() - start_time;
+		float t_sec = (float)tick / 1000.f;
 
-		if((tick - prevtick) > 2000)
+		if(mode == GOLDEN_SNAP)
 		{
-			prevtick = tick;
-			m.qdset += (GOLDEN_ANGLE_RADIANS)*1.47435294f;	//belt ratio
+			if((tick - prev_tick) > 2000)
+			{
+				prev_tick = tick;
+				m.qdset += (GOLDEN_ANGLE_RADIANS)*gear_ratio;	//belt ratio
+			}
+			smooth_qd(m.qdset, 1.f, m.q, &sm, &m.qd, tick);
 		}
-
-		// smooth_qd(m.qdset, 1.f, m.q, &sm, &m.qd, tick);
-
+		else if(mode == CONSTANT_VELOCITY)
+		{
+			m.qd = wrap_2pi(t_sec*M_PI*2/60.f*rpm);
+		}
+		
 		int dartt_rc = m.read_data();
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
 		{
@@ -145,10 +132,10 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			float lidar_anglef = ((float)-m.dp_periph.theta_rem_m) / 1.47435294f;	//scale lidar angle by the belt ratio
+			float lidar_anglef = ((float)(-m.dp_periph.theta_rem_m)) / gear_ratio;	//scale lidar angle by the belt ratio
 			int32_t lidar_angle = wrap_2pi_14b((int32_t)(lidar_anglef));
 			angleBuffer.push(lidar_angle, get_microsecond64());
-			m.qd += 0.0001;
+			
 			m.write_data();
 			// float qd_deg_wrapped = wrap_2pi(m.qd)*180.f/M_PI;
 			// float q_deg_wrapped = wrap_2pi(m.q)*180.f/M_PI;

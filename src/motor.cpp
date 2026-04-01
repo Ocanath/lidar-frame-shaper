@@ -66,6 +66,37 @@ int Motor::read_data(void)
 	return rc;
 }
 
+int Motor::write_pctl_data(void)
+{
+		dp_ctl.mctl_vq = {
+		.kpki = {
+			.kp = {
+				.i32 = 400,
+				.radix = 8
+			},
+			.ki = {
+				.i32 = 3,
+				.radix = 10
+			},
+			.x_integral_div = 10,
+			.x = 0,
+			.x_sat = 1000,
+			.out_rshift = 0
+		},
+		.kd = {
+			.i32 = 40,
+			.radix = 5
+		},
+		.out_sat = 3546
+	};
+	dartt_buffer_t mctlvq = {
+		.buf = (unsigned char *)(&dp_ctl.mctl_vq),
+		.size = sizeof(dp_ctl.mctl_vq),
+		.len = sizeof(dp_ctl.mctl_vq)
+	};
+	return dartt_write_multi(&mctlvq, &ds);
+}
+
 int Motor::write_data(void)
 {
 	int32_t radians_digital = (int32_t)(qd * ((float)(1<<14)));
