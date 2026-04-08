@@ -31,11 +31,26 @@
 #include "serial.h"
 #include "lidar.h"
 #include "AudioWriter.h"
-#include "milliseconds.h"
+#include "tick.h"
+#include "angle_buffer.h"
+#include "udp_forwarder.h"
 #include "Smoothing.h"
 
 
-#define GOLDEN_ANGLE_RADIANS	2.39996322973f 
+#define GOLDEN_ANGLE_RADIANS	2.39996322973f
+
+static const pctl_params_t DEFAULT_MCTL_VQ = {
+	.kpki = {
+		.kp             = {.i32 = 400, .radix = 8},
+		.ki             = {.i32 = 3,   .radix = 10},
+		.x_integral_div = 10,
+		.x              = 0,
+		.x_sat          = 1000,
+		.out_rshift     = 0
+	},
+	.kd      = {.i32 = 40, .radix = 5},
+	.out_sat = 3546
+};
 
 int main(int argc, char* argv[])
 {
@@ -49,7 +64,15 @@ int main(int argc, char* argv[])
 		printf("Error: failed to connect to a serial port\n");
 	}
 
-	LidarSystem lidar; 
+	AngleBuffer angleBuffer;
+
+	UdpForwarder forwarder;
+
+	LidarSystem lidar;
+	lidar.angleBuffer   = &angleBuffer;
+	lidar.onPacketReady = [&forwarder](const uint8_t* data, size_t len) {
+		forwarder.send(data, len);
+	};
 	bool lidar_connected = lidar.connect(2381);
 	if(lidar_connected)
 	{
@@ -76,57 +99,54 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	m.read_data();
-	m.dp_ctl.command_word = 0;	
+	m.dp_ctl.command_word = 0;
 	m.write_data();
-
-	m.dp_ctl.mctl_vq = {
-		.kpki = {
-			.kp = {
-				.i32 = 400,
-				.radix = 8
-			},
-			.ki = {
-				.i32 = 3,
-				.radix = 10
-			},
-			.x_integral_div = 10,
-			.x_sat = 1000
-		},
-		.kd = {
-			.i32 = 40,
-			.radix = 5
-		},
-		.out_sat = 3546
-	};
-	dartt_buffer_t mctlvq = {
-		.buf = (unsigned char *)(&m.dp_ctl.mctl_vq),
-		.size = sizeof(m.dp_ctl.mctl_vq),
-		.len = sizeof(m.dp_ctl.mctl_vq)
-	};
-	if(dartt_sync(&mctlvq, &m.ds) != DARTT_PROTOCOL_SUCCESS)
-	{
-		printf("Failed to update motor control settings");
-		return 1;
-	}
-
+	m.dp_ctl.mctl_vq = DEFAULT_MCTL_VQ;
+	m.write_pctl_data();
 	smooth_mem_t sm = {};
 	init_smoothing_mem(&sm);
 
 	bool running = true;
 	m.qdset = 0.f;
-	uint32_t prevtick = get_tick32()-1000;	//even if it underflows, it'll be correct. yay unsigned integer overflow
+	uint32_t start_time = get_tick32();	//even if it underflows, it'll be correct. yay unsigned integer overflow
+	uint32_t prev_tick = 0;
+
+	//operating mode
+	enum {GOLDEN_SNAP, CONSTANT_VELOCITY};
+
+	float gear_ratio = 1.47435294f;
+	float rpm = 1.f;
+	uint8_t mode = CONSTANT_VELOCITY;
+
+	{
+		MotorWebConfig initCfg;
+		initCfg.mode      = mode;
+		initCfg.rpm       = rpm;
+		initCfg.gear_ratio = gear_ratio;
+		initCfg.mctl_vq   = m.dp_ctl.mctl_vq;
+		forwarder.initMotorConfig(initCfg);
+	}
+	forwarder.startWebServer(1050);
+
 	while (running)
 	{
-		uint32_t tick = get_tick32();
+		uint32_t tick = get_tick32() - start_time;
+		float t_sec = (float)tick / 1000.f;
 
-		if((tick - prevtick) > 2000)
+		if(mode == GOLDEN_SNAP)
 		{
-			prevtick = tick;
-			m.qdset += GOLDEN_ANGLE_RADIANS;
+			if((tick - prev_tick) > 2000)
+			{
+				prev_tick = tick;
+				m.qdset += (GOLDEN_ANGLE_RADIANS)*gear_ratio;	//belt ratio
+			}
+			smooth_qd(m.qdset, 1.f, m.q, &sm, &m.qd, tick);
 		}
-
-		smooth_qd(m.qdset, 1.f, m.q, &sm, &m.qd, tick);
-
+		else if(mode == CONSTANT_VELOCITY)
+		{
+			m.qd = wrap_2pi(t_sec*M_PI*2/60.f*rpm);
+		}
+		
 		int dartt_rc = m.read_data();
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
 		{
@@ -134,17 +154,30 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			// m.qd += 0.0001;
+			float lidar_anglef = ((float)(-m.dp_periph.theta_rem_m)) / gear_ratio;	//scale lidar angle by the belt ratio
+			int32_t lidar_angle = wrap_2pi_14b((int32_t)(lidar_anglef));
+			angleBuffer.push(lidar_angle, get_microsecond64());
+			
 			m.write_data();
-			float qd_deg_wrapped = wrap_2pi(m.qd)*180.f/M_PI;
-			float q_deg_wrapped = wrap_2pi(m.q)*180.f/M_PI;
+			// float qd_deg_wrapped = wrap_2pi(m.qd)*180.f/M_PI;
+			// float q_deg_wrapped = wrap_2pi(m.q)*180.f/M_PI;
 			// printf("%f, %f\n", qd_deg_wrapped, q_deg_wrapped);
 		}
 		if (lidar.pollNewFrame())
 		{
-			printf("lidar timestamp: %u us\n", lidar.latestTimestamp());
+			// printf("lidar timestamp: %u us\n", lidar.latestTimestamp());
 		}
-		
+
+		MotorWebConfig newCfg;
+		if (forwarder.pollMotorConfig(newCfg))
+		{
+			mode       = newCfg.mode;
+			rpm        = newCfg.rpm;
+			gear_ratio = newCfg.gear_ratio;
+			m.dp_ctl.mctl_vq = newCfg.mctl_vq;
+			m.write_pctl_data();
+		}
+
 	}
 	
 	return 0;

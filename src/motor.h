@@ -31,6 +31,7 @@ public:
 
 	int read_data(void);
 	int write_data(void);
+	int write_pctl_data(void);
 	int rezero(void);	//set current position to zero on the motor
 private:
 	dartt_buffer_t read_slice;
