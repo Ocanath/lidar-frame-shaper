@@ -1,0 +1,13 @@
+[Unit]
+Description=Lidar Frame Parser
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/redux/OcanathProj/code/lidar-frame-shaper
+ExecStart=/home/redux/OcanathProj/code/lidar-frame-shaper/build/lidar_frame_parser
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

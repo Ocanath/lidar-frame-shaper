@@ -18,6 +18,13 @@ cmake --build .
 git submodule update --init --recursive
 ```
 
+## System Deployment
+
+This code runs on the raspberry pi connected to the lidar. The raspberry pi controls the motor and recives lidar traffic. 
+
+The program is running as a service/daemon. If you want to make changes, you'll need to stop it and recompile.
+
+
 ## Notes on IP settings, phyical properties
 
 - The unit has a 1.6:1 ratio via the belt.
@@ -30,3 +37,4 @@ git submodule update --init --recursive
 - Solid Orange on RJ45 goes to Dark Orange on the LiDAR
 - Green on the RJ45 goes to Dark Blue on the LiDAR
 - Green/White on the RJ45 goes to Light Blue on the LiDAR
+
