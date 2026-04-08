@@ -36,12 +36,12 @@ systemctl --user disable lidar_frame_parser
 User services only start when you log in by default. To have it start at boot:
 
 ```bash
-sudo loginctl enable-linger redux
+sudo loginctl enable-linger $USER
 ```
 
 ## Notes
 
-- Expects the binary at:
-  `/home/redux/OcanathProj/code/lidar-frame-shaper/build/lidar_frame_parser`
+- Expects the repo cloned to `~/lidar-frame-shaper` and binary built at `~/lidar-frame-shaper/build/lidar_frame_parser`
 - Build first with `cmake --build build` from the repo root if the binary is missing.
+- `%h` in the service file is a systemd specifier for the home directory — works for any username.
 - The service restarts automatically on failure (5 second delay).
