@@ -7,6 +7,8 @@
 #define NOMINMAX
 #include <winsock2.h>
 #include <windows.h>
+#else
+#include <arpa/inet.h>
 #endif
 
 // tinycsocket (must come before SDL - SDL redefines main to SDL_main)
