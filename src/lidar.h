@@ -7,10 +7,17 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include "angle_buffer.h"
 
 class LidarSystem {
 public:
     using Frame = std::vector<Eigen::Vector3f>;
+
+    struct LidarPoint {
+        Eigen::Vector3f pos;
+        int32_t         motor_angle;    // wrap_2pi_14b result restored from 3 packed bytes
+        uint16_t        azimuth_cdeg;
+    };
 
     LidarSystem() = default;
     ~LidarSystem();
@@ -19,36 +26,47 @@ public:
     void disconnect();
     bool isConnected() const { return running_; }
 
-    // Thread-safe snapshot of all buffered frames
+    // Decode a 1242-byte modified packet back to LidarPoints with motor angle
+    static std::vector<LidarPoint> decodeModifiedPacket(const uint8_t* data, size_t len);
+
+    // Thread-safe snapshot of all buffered frames (only populated when enableDecoding = true)
     std::vector<Frame> getFrames() const;
 
     // Returns true and consumes the flag if a new frame arrived since last call
+    // (only fires when enableDecoding = true)
     bool pollNewFrame();
 
     // Latest packet timestamp (microseconds since top of hour), 0 if none received
     uint32_t latestTimestamp() const { return latestTimestamp_.load(); }
 
-    // Settings (read/write from main thread only, before connect)
+    // Settings — set before connect()
     int      bufferDepth       = 1024;
     int      maxPointsPerFrame = 2000;
     uint16_t port              = 2381;
 
-    // Optional callback — called from the receive thread each time a raw
-    // 1206-byte packet arrives.  Set this before calling connect().
-    // main.cpp uses it to inject the motor angle and forward the packet.
-    std::function<void(const uint8_t*, size_t)> onRawPacket;
+    // Set before connect(). If null, motor_angle bytes in output are written as 0.
+    AngleBuffer* angleBuffer = nullptr;
+
+    // Called from the recv thread for each modified 1242-byte packet.
+    std::function<void(const uint8_t*, size_t)> onPacketReady;
+
+    // If true, also decode packets to Cartesian XYZ and populate the frames_ buffer.
+    bool enableDecoding = false;
 
 private:
-    int                 socket_      = -1;   // POSIX UDP socket fd, -1 = invalid
+    int                 socket_      = -1;
     std::thread         recvThread_;
     std::atomic<bool>   running_     = false;
 
     mutable std::mutex  framesMutex_;
-    std::deque<Frame>   frames_;             // circular buffer, max bufferDepth entries
-    Frame               pending_;            // accumulating current scan
+    std::deque<Frame>   frames_;
+    Frame               pending_;
     float               lastAzimuth_ = -1.f;
-    std::atomic<bool>     newFrameFlag_     = false;
-    std::atomic<uint32_t> latestTimestamp_  = 0;
+    std::atomic<bool>     newFrameFlag_    = false;
+    std::atomic<uint32_t> latestTimestamp_ = 0;
+
+    int64_t  epochOffsetUs_    = 0;
+    bool     epochInitialized_ = false;
 
     void recvLoop();
     void decodePacket(const uint8_t* data, size_t len);

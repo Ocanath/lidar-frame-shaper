@@ -1,0 +1,13 @@
+[Unit]
+Description=Lidar Frame Parser
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/lidar-frame-shaper
+ExecStart=%h/lidar-frame-shaper/build/lidar_frame_parser
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

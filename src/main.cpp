@@ -35,7 +35,9 @@
 #include "serial.h"
 #include "lidar.h"
 #include "AudioWriter.h"
-#include "milliseconds.h"
+#include "tick.h"
+#include "angle_buffer.h"
+#include "udp_forwarder.h"
 #include "Smoothing.h"
 
 
@@ -87,55 +89,18 @@ static float filtfiltRead(float alpha)
     return z[N-1];
 }
 
-// ── Packet injection ──────────────────────────────────────────────────────────
-//
-// Takes a standard 1206-byte VLP-16 packet and builds a 1242-byte modified
-// packet by inserting 3 bytes of motor angle into each of the 12 blocks.
-//
-// Original block layout (100 bytes):
-//   [0xFF][0xEE][az_lo][az_hi][ch0 dist_lo][ch0 dist_hi][ch0 intensity] ... (32 ch × 3B)
-//
-// Modified block layout (103 bytes):
-//   [0xFF][0xEE][az_lo][az_hi][ma_lo][ma_mid][ma_hi][ch0 ...] ... (32 ch × 3B)
-//
-// motor_angle_fixed is q converted to 14-bit radix fixed-point:
-//   int32_t fixed = (int32_t)(q_radians * (float)(1 << 14))
-//
-static void buildModifiedPacket(const uint8_t* raw1206,
-                                 int32_t        motor_angle_fixed,
-                                 uint8_t*       out1242)
-{
-    // Extract the 3 bytes we'll stamp into every block.
-    // Store as little-endian 24-bit signed (matches the viewer's sign-extension logic).
-    uint8_t ma0 =  (uint8_t)( motor_angle_fixed        & 0xFF);
-    uint8_t ma1 =  (uint8_t)((motor_angle_fixed >>  8) & 0xFF);
-    uint8_t ma2 =  (uint8_t)((motor_angle_fixed >> 16) & 0xFF);
-
-    for (int b = 0; b < 12; ++b)
-    {
-        const uint8_t* src = raw1206 + b * 100;   // original block start
-        uint8_t*       dst = out1242 + b * 103;   // modified block start
-
-        // Sync + azimuth (4 bytes) — copy as-is
-        dst[0] = src[0];   // 0xFF
-        dst[1] = src[1];   // 0xEE
-        dst[2] = src[2];   // azimuth low byte
-        dst[3] = src[3];   // azimuth high byte
-
-        // Motor angle (3 new bytes) — this is q, the actual measured position
-        dst[4] = ma0;
-        dst[5] = ma1;
-        dst[6] = ma2;
-
-        // 32 channels × 3 bytes each (96 bytes) — copy as-is
-        memcpy(dst + 7, src + 4, 96);
-    }
-
-    // Footer: 6 bytes (timestamp 4B + return_mode 1B + model_id 1B)
-    // Original footer starts at byte 1200; modified footer starts at byte 1236
-    memcpy(out1242 + 1236, raw1206 + 1200, 6);
-}
-
+static const pctl_params_t DEFAULT_MCTL_VQ = {
+	.kpki = {
+		.kp             = {.i32 = 400, .radix = 8},
+		.ki             = {.i32 = 3,   .radix = 10},
+		.x_integral_div = 10,
+		.x              = 0,
+		.x_sat          = 1000,
+		.out_rshift     = 0
+	},
+	.kd      = {.i32 = 40, .radix = 5},
+	.out_sat = 3546
+};
 
 int main(int argc, char* argv[])
 {
@@ -150,73 +115,21 @@ int main(int argc, char* argv[])
 		printf("Error: failed to connect to a serial port\n");
 	}
 
+	AngleBuffer angleBuffer;
+
+	UdpForwarder forwarder;
+
 	// ── LiDAR setup ───────────────────────────────────────────────────────────
 	LidarSystem lidar;
+	lidar.angleBuffer   = &angleBuffer;
+	lidar.onPacketReady = [&forwarder](const uint8_t* data, size_t len) {
+		forwarder.send(data, len);
+	};
 	bool lidar_connected = lidar.connect(2381);
 	if(lidar_connected)
 	{
 		printf("Bind success to lidar port - ready for data\n");
 	}
-
-	// ── Output UDP socket (sends modified packets to the viewer) ──────────────
-	//
-	// The viewer (opengl_boilerplate) listens on port 9000 for 1242-byte packets.
-	// We set up a plain UDP socket here and send to 127.0.0.1:9000 (localhost).
-	// If the viewer is on a different machine, change the address below.
-
-	tcs_lib_init();
-	TcsSocket outSocket = TCS_SOCKET_INVALID;
-	if (tcs_socket_preset(&outSocket, TCS_PRESET_UDP_IP4) != TCS_SUCCESS)
-	{
-		printf("Warning: failed to create output UDP socket — viewer will not receive data\n");
-	}
-
-	struct TcsAddress viewerAddr = TCS_ADDRESS_NONE;
-	viewerAddr.family                = TCS_AF_IP4;
-	viewerAddr.data.ip4.address      = inet_addr("100.168.0.23"); // viewer machine
-	viewerAddr.data.ip4.port         = 9000;
-
-	// ── Thread-safe motor angle ────────────────────────────────────────────────
-	//
-	// The onRawPacket callback fires on the LiDAR receive thread, but m.q is
-	// written on the main thread.  We bridge this with an atomic int32_t that
-	// stores q in 14-bit radix fixed-point — the same format the viewer expects.
-	//
-	// Why fixed-point instead of float?
-	//   std::atomic<float> exists but has limited compiler support.
-	//   int32_t is universally atomic on x86/ARM and matches the wire format
-	//   so we don't need to convert twice.
-
-	std::atomic<int32_t> motorAngleFixed{0};
-
-	// ── Register the raw-packet callback ──────────────────────────────────────
-	//
-	// This lambda runs on the LiDAR receive thread each time a 1206-byte packet
-	// arrives.  It reads the latest motor angle (atomically), builds the 1242-
-	// byte modified packet, and sends it to the viewer.
-
-	uint8_t outBuf[1242];   // reused each call — safe because callback is single-threaded
-
-	lidar.onRawPacket = [&](const uint8_t* raw, size_t len)
-	{
-		if (len < 1206) return;
-		if (outSocket == TCS_SOCKET_INVALID) return;
-
-		// Grab the latest q — atomic load, no lock needed
-		int32_t motorFixed = motorAngleFixed.load(std::memory_order_relaxed);
-
-		// Build the modified 1242-byte packet
-		buildModifiedPacket(raw, motorFixed, outBuf);
-
-		// Send to viewer
-		size_t sent = 0;
-		TcsResult rc = tcs_send_to(outSocket, outBuf, 1242,
-		                           TCS_FLAG_NONE, &viewerAddr, &sent);
-		if (rc != TCS_SUCCESS)
-		{
-			printf("Warning: failed to send modified packet to viewer\n");
-		}
-	};
 
 	// ── Motor init ────────────────────────────────────────────────────────────
 	Motor m(0, &serial); 	//dartt addr = 0
@@ -240,56 +153,52 @@ int main(int argc, char* argv[])
 	m.read_data();
 	m.dp_ctl.command_word = 0;
 	m.write_data();
-
-	m.dp_ctl.mctl_vq = {
-		.kpki = {
-			.kp = {
-				.i32 = 400,
-				.radix = 8
-			},
-			.ki = {
-				.i32 = 3,
-				.radix = 10
-			},
-			.x_integral_div = 10,
-			.x_sat = 1000
-		},
-		.kd = {
-			.i32 = 40,
-			.radix = 5
-		},
-		.out_sat = 3546
-	};
-	dartt_buffer_t mctlvq = {
-		.buf = (unsigned char *)(&m.dp_ctl.mctl_vq),
-		.size = sizeof(m.dp_ctl.mctl_vq),
-		.len = sizeof(m.dp_ctl.mctl_vq)
-	};
-	if(dartt_sync(&mctlvq, &m.ds) != DARTT_PROTOCOL_SUCCESS)
-	{
-		printf("Failed to update motor control settings");
-		return 1;
-	}
-
+	m.dp_ctl.mctl_vq = DEFAULT_MCTL_VQ;
+	m.write_pctl_data();
 	smooth_mem_t sm = {};
 	init_smoothing_mem(&sm);
 
 	// ── Main loop ─────────────────────────────────────────────────────────────
 	bool running = true;
 	m.qdset = 0.f;
-	uint32_t prevtick = get_tick32()-1000;
+	uint32_t start_time = get_tick32();	//even if it underflows, it'll be correct. yay unsigned integer overflow
+	uint32_t prev_tick = 0;
+
+	//operating mode
+	enum {GOLDEN_SNAP, CONSTANT_VELOCITY};
+
+	float gear_ratio = 1.47435294f;
+	float rpm = 1.f;
+	uint8_t mode = CONSTANT_VELOCITY;
+
+	{
+		MotorWebConfig initCfg;
+		initCfg.mode      = mode;
+		initCfg.rpm       = rpm;
+		initCfg.gear_ratio = gear_ratio;
+		initCfg.mctl_vq   = m.dp_ctl.mctl_vq;
+		forwarder.initMotorConfig(initCfg);
+	}
+	forwarder.startWebServer(1050);
+
 	while (running)
 	{
-		uint32_t tick = get_tick32();
+		uint32_t tick = get_tick32() - start_time;
+		float t_sec = (float)tick / 1000.f;
 
-		// Every 2 seconds, advance the target angle by the golden angle (~137.5°)
-		if((tick - prevtick) > 2000)
+		if(mode == GOLDEN_SNAP)
 		{
-			prevtick = tick;
-			m.qdset += GOLDEN_ANGLE_RADIANS;
+			if((tick - prev_tick) > 2000)
+			{
+				prev_tick = tick;
+				m.qdset += (GOLDEN_ANGLE_RADIANS)*gear_ratio;	//belt ratio
+			}
+			smooth_qd(m.qdset, 1.f, m.q, &sm, &m.qd, tick);
 		}
-
-		smooth_qd(m.qdset, 1.f, m.q, &sm, &m.qd, tick);
+		else if(mode == CONSTANT_VELOCITY)
+		{
+			m.qd = wrap_2pi(t_sec*M_PI*2/60.f*rpm);
+		}
 
 		int dartt_rc = m.read_data();
 		if(dartt_rc != DARTT_PROTOCOL_SUCCESS)
@@ -298,28 +207,35 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			m.write_data();
+			// Apply zero-phase filtfilt to encoder angle before pushing into
+			// the angle buffer — removes quantization noise without phase lag.
+			float raw_anglef = ((float)(-m.dp_periph.theta_rem_m)) / gear_ratio;
+			filtfiltPush(raw_anglef);
+			float filtered_anglef = filtfiltRead(FILTFILT_ALPHA);
+			int32_t lidar_angle = wrap_2pi_14b((int32_t)(filtered_anglef));
+			angleBuffer.push(lidar_angle, get_microsecond64());
 
-			// Push raw encoder reading into filtfilt buffer and store the
-			// zero-phase filtered result for the packet injection callback.
-			filtfiltPush(m.q);
-			motorAngleFixed.store(
-				(int32_t)(filtfiltRead(FILTFILT_ALPHA) * (float)(1 << 14)),
-				std::memory_order_relaxed
-			);
+			m.write_data();
 		}
 
 		if (lidar.pollNewFrame())
 		{
-			printf("lidar timestamp: %u us\n", lidar.latestTimestamp());
+			// printf("lidar timestamp: %u us\n", lidar.latestTimestamp());
+		}
+
+		MotorWebConfig newCfg;
+		if (forwarder.pollMotorConfig(newCfg))
+		{
+			mode       = newCfg.mode;
+			rpm        = newCfg.rpm;
+			gear_ratio = newCfg.gear_ratio;
+			m.dp_ctl.mctl_vq = newCfg.mctl_vq;
+			m.write_pctl_data();
 		}
 	}
 
 	// ── Cleanup ───────────────────────────────────────────────────────────────
 	lidar.disconnect();
-	if (outSocket != TCS_SOCKET_INVALID)
-		tcs_close(&outSocket);
-	tcs_lib_free();
 
 	return 0;
 }
