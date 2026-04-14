@@ -83,6 +83,11 @@ void LidarSystem::recvLoop()
         ssize_t received = ::recvfrom(socket_, buf, sizeof(buf), 0, nullptr, nullptr);
         if (received == 1206)
 		{
+            // Fire the raw-packet callback first so main.cpp can inject
+            // the motor angle and forward the packet to the viewer.
+            if (onRawPacket)
+                onRawPacket(buf, (size_t)received);
+
             decodePacket(buf, (size_t)received);
 		}
         // On timeout (EAGAIN/EWOULDBLOCK), received < 0 — just loop and re-check running_
