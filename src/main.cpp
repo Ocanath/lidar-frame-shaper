@@ -53,7 +53,7 @@
 // FILTFILT_ALPHA: IIR coefficient — 0=no filter, ~0.5=moderate, ~0.8=heavy
 
 static constexpr int   FILTFILT_N     = 16;
-static constexpr float FILTFILT_ALPHA = 0.5f;
+static constexpr float FILTFILT_ALPHA = 0.15f;
 
 static float filtfiltBuf[FILTFILT_N] = {};
 static int   filtfiltHead  = 0;
